@@ -3,6 +3,7 @@ package distributed_lock
 import (
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/petermattis/goid"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"sync"
@@ -313,4 +314,37 @@ func TestLockAndUnlockWithTimeout(t *testing.T) {
 
 	}()
 	wg.Wait()
+}
+
+func TestManyGoroutineGetLock(t *testing.T) {
+
+	var (
+		goroutineCount = 3
+		wg             = sync.WaitGroup{}
+		lockName       = "inner_redis_lock_test"
+	)
+	wg.Add(goroutineCount)
+	for i := 0; i < goroutineCount; i++ {
+		go func() {
+			defer wg.Done()
+			locker, err := NewRedisLock(lockName, redisClient)
+			assert.Nil(t, err)
+			locker.Lock()
+			log.Printf("%v get lock", goid.Get())
+			time.Sleep(1 * time.Second)
+			locker.Unlock()
+			log.Printf("%v  unlock", goid.Get())
+		}()
+	}
+	wg.Wait()
+}
+
+func TestLuaCostTime(t *testing.T) {
+	var (
+		lockName = "inner_redis_lock_test"
+	)
+	startTime := time.Now()
+	var lockLuaScript = redis.NewScript(lockLuaScript)
+	lockLuaScript.Run(redisClient, []string{lockName, "goroutineId"}, 1, 4394902).Result()
+	fmt.Println(time.Since(startTime))
 }

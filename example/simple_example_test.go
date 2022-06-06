@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/petermattis/goid"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"sync"
@@ -12,7 +13,7 @@ import (
 func TestConcurrentSubmitOrder(t *testing.T) {
 	var (
 		goroutineCount                = 100
-		everyonePurchaseCount         = 3
+		everyonePurchaseCount         = 4
 		skuId                   int64 = 134930
 		submitOrderSuccessCount int32 = 0
 		wg                            = sync.WaitGroup{}
@@ -29,9 +30,10 @@ func TestConcurrentSubmitOrder(t *testing.T) {
 			if success {
 				atomic.AddInt32(&submitOrderSuccessCount, int32(everyonePurchaseCount))
 			}
+			log.Printf("%v finished", goid.Get())
 		}()
 	}
 	wg.Wait()
-	assert.Equal(t, submitOrderSuccessCount, int32(getStock(skuId)))
+	assert.Equal(t, submitOrderSuccessCount, int32(30-getStock(skuId)))
 	log.Println(getStock(skuId))
 }

@@ -1,7 +1,6 @@
 package example
 
 import (
-	"errors"
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/weiyang_tang/redisLock/distributed_lock"
@@ -37,18 +36,12 @@ func SubmitOrder(skuId int64, purchasesCount int) (bool, error) {
 		return false, err
 	}
 	redisLock.Lock()
+	defer redisLock.Unlock()
 	if getStock(skuId) < purchasesCount {
 		return false, nil
 	}
 	decreaseStock(skuId, purchasesCount)
 	// other cost times operation
 	time.Sleep(10 * time.Millisecond)
-	unlock, err := redisLock.Unlock()
-	if err != nil {
-		return false, err
-	}
-	if !unlock {
-		return false, errors.New(fmt.Sprintf("unlock error %v", err))
-	}
 	return true, nil
 }

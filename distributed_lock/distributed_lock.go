@@ -6,7 +6,6 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/petermattis/goid"
-	"io/ioutil"
 	"log"
 	"net"
 	"strings"
@@ -103,12 +102,14 @@ func (r *redisLock) LockWithTimeout(timeout time.Duration) error {
 	exceedTime := false
 	ticker := time.NewTicker(timeout)
 	go func() {
-		select {
-		case <-r.redisClient.Subscribe(r.unlockMsgChanName).Channel():
-			waitChan <- struct{}{}
-		case <-ticker.C:
-			exceedTime = true
-			waitChan <- struct{}{}
+		for {
+			select {
+			case <-r.redisClient.Subscribe(r.unlockMsgChanName).Channel():
+				waitChan <- struct{}{}
+			case <-ticker.C:
+				exceedTime = true
+				waitChan <- struct{}{}
+			}
 		}
 	}()
 	for {
@@ -129,9 +130,11 @@ func (r *redisLock) LockWithTimeout(timeout time.Duration) error {
 func (r *redisLock) Lock() error {
 	waitChan := make(chan struct{}, 1)
 	go func() {
-		select {
-		case <-r.redisClient.Subscribe(r.unlockMsgChanName).Channel():
-			waitChan <- struct{}{}
+		for {
+			select {
+			case <-r.redisClient.Subscribe(r.unlockMsgChanName).Channel():
+				waitChan <- struct{}{}
+			}
 		}
 	}()
 	for {
@@ -165,23 +168,13 @@ func (r *redisLock) Unlock() (bool, error) {
 }
 
 func (r *redisLock) execLockLua(lockName string, goroutineId string, timeoutMilliseconds int64) (int, error) {
-	bufBytes, err := ioutil.ReadFile("lua/lock.lua")
-	if err != nil {
-		return 0, err
-	}
-	fmt.Printf("lock.lua is %v \n", string(bufBytes))
-	var lockLuaScript = redis.NewScript(string(bufBytes))
+	var lockLuaScript = redis.NewScript(lockLuaScript)
 	result, err := lockLuaScript.Run(r.redisClient, []string{lockName, goroutineId}, 1, timeoutMilliseconds).Result()
 	return gconv.Int(result), err
 }
 
 func (r *redisLock) execUnlockLua(lockName string, goroutineId string, unlockChanName string) (bool, error) {
-	bufBytes, err := ioutil.ReadFile("lua/unlock.lua")
-	if err != nil {
-		return false, err
-	}
-	fmt.Printf("unlock.lua is %v \n", string(bufBytes))
-	var lockLuaScript = redis.NewScript(string(bufBytes))
+	var lockLuaScript = redis.NewScript(unlockLuaScript)
 	res, err := lockLuaScript.Run(r.redisClient, []string{lockName, goroutineId}, unlockChanName).Result()
 	if err != nil {
 		return false, err
@@ -193,7 +186,6 @@ func (r *redisLock) execUnlockLua(lockName string, goroutineId string, unlockCha
 }
 
 func (r *redisLock) autoRenewExpire() {
-	//log.Println("auto renew expire time, lock name", r.lockName)
 	ticker := time.NewTicker(r.autoReExpiredDelta)
 	for {
 		select {
@@ -202,7 +194,6 @@ func (r *redisLock) autoRenewExpire() {
 				log.Printf("renew expired failed, lock name:%s,err:%v \n", r.lockName, err)
 				continue
 			}
-			//log.Printf("renew expired successful,lock name:%s \n", r.lockName)
 		}
 	}
 }

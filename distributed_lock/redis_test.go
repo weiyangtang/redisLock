@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestLuaExec(t *testing.T) {
@@ -57,4 +59,36 @@ func TestSimpleLua(t *testing.T) {
 	assert.Nil(t, err)
 	fmt.Println(result)
 	rdb.Subscribe("").Channel()
+}
+
+func TestSubscribe(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	channelName := "subscribe_channel_test"
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		for {
+			var msg = <-rdb.Subscribe(channelName).Channel()
+			fmt.Println(msg)
+			//time.Sleep(1 * time.Second)
+		}
+	}()
+
+	go func() {
+		const (
+			simpleLua = `return redis.call("publish", KEYS[1], ARGV[1])`
+		)
+		var i = 1
+		for {
+			rdb.Eval(simpleLua, []string{channelName}, i).Result()
+			//fmt.Println(result)
+			i++
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	wg.Wait()
 }
