@@ -169,7 +169,7 @@ func (r *redisLock) execLockLua(lockName string, goroutineId string, timeoutMill
 	if err != nil {
 		return 0, err
 	}
-	//fmt.Printf("lock.lua is %v \n", string(bufBytes))
+	fmt.Printf("lock.lua is %v \n", string(bufBytes))
 	var lockLuaScript = redis.NewScript(string(bufBytes))
 	result, err := lockLuaScript.Run(r.redisClient, []string{lockName, goroutineId}, 1, timeoutMilliseconds).Result()
 	return gconv.Int(result), err
@@ -180,7 +180,7 @@ func (r *redisLock) execUnlockLua(lockName string, goroutineId string, unlockCha
 	if err != nil {
 		return false, err
 	}
-	//fmt.Printf("lock.lua is %v \n", string(bufBytes))
+	fmt.Printf("unlock.lua is %v \n", string(bufBytes))
 	var lockLuaScript = redis.NewScript(string(bufBytes))
 	res, err := lockLuaScript.Run(r.redisClient, []string{lockName, goroutineId}, unlockChanName).Result()
 	if err != nil {
@@ -193,7 +193,7 @@ func (r *redisLock) execUnlockLua(lockName string, goroutineId string, unlockCha
 }
 
 func (r *redisLock) autoRenewExpire() {
-	log.Println("auto renew expire time, lock name", r.lockName)
+	//log.Println("auto renew expire time, lock name", r.lockName)
 	ticker := time.NewTicker(r.autoReExpiredDelta)
 	for {
 		select {
@@ -202,7 +202,7 @@ func (r *redisLock) autoRenewExpire() {
 				log.Printf("renew expired failed, lock name:%s,err:%v \n", r.lockName, err)
 				continue
 			}
-			log.Printf("renew expired successful,lock name:%s \n", r.lockName)
+			//log.Printf("renew expired successful,lock name:%s \n", r.lockName)
 		}
 	}
 }
